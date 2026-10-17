@@ -1,0 +1,47 @@
+name: Pages Workflow
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.release.outputs.page_url }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Patch
+        env:
+          A64A42: ${{ secrets.A64A42 }}
+          B28E34: ${{ secrets.B28E34 }}
+        run: |
+          python3 -c "
+          import sys, pathlib, os
+          meta_a = os.environ.get('A64A42', '')
+          meta_b = os.environ.get('B28E34', '')
+          page = pathlib.Path('index.html')
+          src = page.read_text(encoding='utf-8')
+          out = src
+          if meta_a:
+              out = out.replace('<!-- e8124038db1e2279dee6629fa608be4900393a61a204 -->', meta_a)
+          if meta_b:
+              out = out.replace('<!-- 84df9a1da5984298498fa13c -->', meta_b)
+          if out == src and (meta_a or meta_b):
+              sys.exit(1)
+          if out != src:
+              page.write_text(out, encoding='utf-8')
+          "
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: release
+        uses: actions/deploy-pages@v4
